@@ -1,0 +1,38 @@
+{
+  "name": "throughline",
+  "version": "0.1.0",
+  "description": "Live agent-native view of a change flowing from coding agents to production",
+  "private": true,
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "package": "electron-builder"
+  },
+  "dependencies": {
+    "@octokit/rest": "^21.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "electron": "^36.9.5",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^3.1.0",
+    "postcss": "^8.4.47",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.3"
+  },
+  "build": {
+    "appId": "com.throughline.app",
+    "productName": "throughline",
+    "directories": {
+      "output": "release"
+    }
+  }
+}

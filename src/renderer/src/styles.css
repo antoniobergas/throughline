@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #0E1620;
+    color: #E8EEF2;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@keyframes subtle-pulse {
+  0%, 100% { box-shadow: 0 0 8px currentColor; }
+  50% { box-shadow: 0 0 18px currentColor; }
+}
+
+.animate-active-pulse {
+  animation: subtle-pulse 2s ease-in-out infinite;
+}
+
+@keyframes status-dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.6; }
+}
+
+.status-dot-running {
+  animation: status-dot-pulse 1.5s ease-in-out infinite;
+}
