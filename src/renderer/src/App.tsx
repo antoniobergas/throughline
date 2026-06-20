@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FeatureFlow } from "../../shared/types";
 import { MOCK_FLOWS } from "./mockData";
-import { getSettings, setToken, clearToken, listRepos, getFeatureFlows, getSelectedRepos, setSelectedRepos, reportAttention, isElectron } from "./electronApi";
+import { getSettings, clearToken, listRepos, getFeatureFlows, getSelectedRepos, setSelectedRepos, reportAttention, isElectron } from "./electronApi";
 import BoardHeader from "./components/BoardHeader";
 import StageHeaderRow from "./components/StageHeaderRow";
 import FlowRow from "./components/FlowRow";
@@ -73,7 +73,8 @@ const ATTENTION_REASON_LABELS: Record<string, string> = {
 };
 
 export default function App() {
-  const [token, setTokenState] = useState("");
+  const [hasToken, setHasToken] = useState(false);
+  const [userLogin, setUserLogin] = useState<string | undefined>(undefined);
   const [selectedRepos, setSelectedRepos_state] = useState<string[]>([]);
   const [repos, setRepos] = useState<string[]>([]);
   const [flows, setFlows] = useState<FeatureFlow[]>([]);
@@ -91,7 +92,6 @@ export default function App() {
   const prevAttentionIdsRef = useRef<Set<string>>(new Set());
   const isFirstPollRef = useRef(true);
 
-  const hasToken = !!token;
   const inElectron = isElectron();
 
   // Load settings on mount
@@ -103,7 +103,8 @@ export default function App() {
     }
     getSettings()
       .then(async (s) => {
-        if (s.token) setTokenState(s.token);
+        setHasToken(s.hasToken);
+        if (s.login) setUserLogin(s.login);
         const saved = await getSelectedRepos().catch(() => []);
         if (saved.length > 0) {
           setSelectedRepos_state(saved);
@@ -241,9 +242,9 @@ export default function App() {
     if (selectedRepos.length > 0) loadFlows(selectedRepos);
   }, [selectedRepos, loadFlows]);
 
-  const handleSaveToken = async (t: string) => {
-    if (inElectron) await setToken(t);
-    setTokenState(t);
+  const handleConnected = async (login: string) => {
+    setHasToken(true);
+    setUserLogin(login);
     setUseMock(false);
     setFlows([]);
     setShowSettings(false);
@@ -255,7 +256,8 @@ export default function App() {
 
   const handleClearToken = async () => {
     if (inElectron) await clearToken();
-    setTokenState("");
+    setHasToken(false);
+    setUserLogin(undefined);
     setRepos([]);
     setSelectedRepos_state([]);
     setFlows(MOCK_FLOWS);
@@ -321,7 +323,7 @@ export default function App() {
                 Connect your GitHub repository
               </p>
               <p className="text-xs max-w-xs leading-relaxed" style={{ color: "#5A7389" }}>
-                Add a fine-grained PAT to see your PRs and agents flowing from code to production.
+                Connect your GitHub account to see PRs and agents flowing from code to production.
               </p>
             </div>
             <button
@@ -329,7 +331,7 @@ export default function App() {
               style={{ background: "#38E1C6", color: "#080E14" }}
               onClick={() => setShowSettings(true)}
             >
-              Add GitHub token
+              Connect GitHub
             </button>
           </div>
         )}
@@ -401,9 +403,9 @@ export default function App() {
 
       {showSettings && (
         <SettingsModal
-          currentToken={token}
           hasToken={hasToken}
-          onSave={handleSaveToken}
+          login={userLogin}
+          onConnected={handleConnected}
           onClear={handleClearToken}
           onClose={() => setShowSettings(false)}
         />
@@ -429,8 +431,8 @@ function ErrorBanner({ error, onOpenSettings, onRestart }: ErrorBannerProps) {
   let cta: "settings" | "restart" | "none" = "none";
 
   if (inner === "AUTH_401") {
-    heading = "Your GitHub token is invalid or expired.";
-    detail = "Update your PAT in Settings to restore access.";
+    heading = "GitHub authorization expired.";
+    detail = "Reconnect your GitHub account in Settings.";
     cta = "settings";
   } else if (inner.startsWith("RATE_LIMIT:")) {
     const parts = inner.split(":");
@@ -441,12 +443,12 @@ function ErrorBanner({ error, onOpenSettings, onRestart }: ErrorBannerProps) {
     detail = "Auto-refresh is paused to avoid wasting quota.";
     cta = "restart";
   } else if (inner === "SCOPE_403") {
-    heading = "GitHub returned 403 — insufficient token scopes.";
-    detail = "Open Settings and confirm your PAT has: Pull requests, Checks, Deployments, Actions.";
+    heading = "GitHub returned 403 — insufficient scopes.";
+    detail = "Reconnect in Settings to re-authorize with repo access.";
     cta = "settings";
   } else if (inner === "NOT_FOUND_404") {
-    heading = "Repo not found or your token lacks access.";
-    detail = "Check the selected repo and your PAT permissions.";
+    heading = "Repo not found or your account lacks access.";
+    detail = "Check the selected repo and your GitHub permissions.";
     cta = "settings";
   } else if (inner === "NETWORK") {
     heading = "Cannot reach GitHub — check your internet connection.";

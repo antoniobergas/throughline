@@ -1,10 +1,12 @@
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import path from "path";
 import { GitHubClient } from "./github";
+import { GITHUB_OAUTH_CLIENT_ID, requestDeviceCode, pollForToken } from "./auth";
 import { getToken, setToken, clearToken, getSelectedRepo, setSelectedRepo, getSelectedRepos, setSelectedRepos } from "./store";
-import type { AppSettings, FeatureFlow } from "../shared/types";
+import type { FeatureFlow } from "../shared/types";
 
 let client: GitHubClient | null = null;
+let authAbortController: AbortController | null = null;
 
 const knownAttentionIds = new Set<string>();
 let isFirstLoad = true;
@@ -21,7 +23,7 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 600,
     title: "throughline",
-    backgroundColor: "#0E1620",
+    backgroundColor: "#080E14",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
@@ -50,16 +52,6 @@ app.on("window-all-closed", () => {
 
 // ── Error classification ───────────────────────────────────────────────────────
 
-/**
- * Classify a GitHub API error into a structured error code that the renderer
- * can turn into an actionable message.  Codes:
- *   AUTH_401                 – invalid / expired token
- *   RATE_LIMIT:<epoch>       – primary rate limit; epoch = x-ratelimit-reset
- *   SCOPE_403                – 403 that is NOT a rate-limit (missing scopes)
- *   NOT_FOUND_404            – repo not found or token lacks access
- *   NETWORK                  – connection-level failure (no status code)
- *   UNKNOWN:<original>       – anything else
- */
 function classifyGitHubError(err: unknown): string {
   if (err && typeof err === "object") {
     const e = err as Record<string, unknown>;
@@ -93,24 +85,57 @@ function classifyGitHubError(err: unknown): string {
 
 // ── IPC handlers ──────────────────────────────────────────────────────────────
 
-ipcMain.handle("get-settings", (): AppSettings => ({
-  token: getToken(),
-  selectedRepo: getSelectedRepo(),
-}));
-
-ipcMain.handle("test-token", async (_e, token: string): Promise<{ login: string }> => {
-  const tempClient = new GitHubClient(token);
-  try {
-    const login = await tempClient.getAuthenticatedUser();
-    return { login };
-  } catch (err) {
-    throw new Error(classifyGitHubError(err));
+ipcMain.handle("get-settings", async (): Promise<{ hasToken: boolean; login?: string; selectedRepo?: string }> => {
+  const token = getToken();
+  let login: string | undefined;
+  if (token && client) {
+    login = await client.getAuthenticatedUser().catch(() => undefined);
   }
+  return { hasToken: !!token, login, selectedRepo: getSelectedRepo() };
 });
 
-ipcMain.handle("set-token", (_e, token: string): void => {
-  setToken(token);
-  client = new GitHubClient(token);
+// GitHub OAuth Device Flow
+ipcMain.handle("github-auth-start", async (): Promise<{ user_code: string; verification_uri: string; expires_in: number }> => {
+  const clientId = GITHUB_OAUTH_CLIENT_ID;
+  if (!clientId) {
+    throw new Error("NO_CLIENT_ID");
+  }
+
+  // Cancel any in-progress auth
+  if (authAbortController) authAbortController.abort();
+  authAbortController = new AbortController();
+  const { signal } = authAbortController;
+
+  const deviceData = await requestDeviceCode(clientId);
+  shell.openExternal(deviceData.verification_uri_complete || deviceData.verification_uri);
+
+  // Poll in background; send result via webContents event
+  const win = BrowserWindow.getAllWindows()[0];
+  pollForToken(clientId, deviceData.device_code, deviceData.interval, signal)
+    .then(async (token) => {
+      setToken(token);
+      client = new GitHubClient(token);
+      const login = await client.getAuthenticatedUser().catch(() => "");
+      win?.webContents.send("auth-complete", { login });
+    })
+    .catch((err: Error) => {
+      if (err.message !== "CANCELLED") {
+        win?.webContents.send("auth-error", err.message);
+      }
+    });
+
+  return {
+    user_code: deviceData.user_code,
+    verification_uri: deviceData.verification_uri,
+    expires_in: deviceData.expires_in,
+  };
+});
+
+ipcMain.handle("github-auth-cancel", (): void => {
+  if (authAbortController) {
+    authAbortController.abort();
+    authAbortController = null;
+  }
 });
 
 ipcMain.handle("clear-token", (): void => {
@@ -165,7 +190,6 @@ ipcMain.handle("report-attention", (_e, items: Array<{ id: string; reason: strin
       n.show();
     }
   }
-  // Sync known set with current
   knownAttentionIds.clear();
   for (const id of currentIds) knownAttentionIds.add(id);
 });

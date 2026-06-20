@@ -1,9 +1,12 @@
 import type { FeatureFlow } from "../../shared/types";
 
+type AuthResult = { ok: true; login: string } | { ok: false; error: string };
+
 interface ElectronAPI {
-  getSettings(): Promise<{ token?: string; selectedRepo?: string }>;
-  testToken(token: string): Promise<{ login: string }>;
-  setToken(token: string): Promise<void>;
+  getSettings(): Promise<{ hasToken: boolean; login?: string; selectedRepo?: string }>;
+  startGitHubAuth(): Promise<{ user_code: string; verification_uri: string; expires_in: number }>;
+  cancelGitHubAuth(): Promise<void>;
+  onAuthResult(callback: (result: AuthResult) => void): () => void;
   clearToken(): Promise<void>;
   listRepos(): Promise<string[]>;
   getFeatureFlows(repo: string): Promise<FeatureFlow[]>;
@@ -28,8 +31,9 @@ const api = (): ElectronAPI => {
 export const isElectron = (): boolean => !!window.electronAPI;
 
 export const getSettings = () => api().getSettings();
-export const testToken = (token: string) => api().testToken(token);
-export const setToken = (token: string) => api().setToken(token);
+export const startGitHubAuth = () => api().startGitHubAuth();
+export const cancelGitHubAuth = () => api().cancelGitHubAuth();
+export const onAuthResult = (cb: (result: AuthResult) => void) => api().onAuthResult(cb);
 export const clearToken = () => api().clearToken();
 export const listRepos = () => api().listRepos();
 export const getFeatureFlows = (repo: string) => api().getFeatureFlows(repo);
