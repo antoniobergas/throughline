@@ -6,8 +6,8 @@ interface Props {
   onlyNeedsAttention: boolean;
   onToggleFilter: () => void;
   repos: string[];
-  selectedRepo: string;
-  onSelectRepo: (r: string) => void;
+  selectedRepos: string[];
+  onSelectRepos: (repos: string[]) => void;
   onOpenSettings: () => void;
   hasToken: boolean;
   loading: boolean;
@@ -21,8 +21,8 @@ export default function BoardHeader({
   onlyNeedsAttention,
   onToggleFilter,
   repos,
-  selectedRepo,
-  onSelectRepo,
+  selectedRepos,
+  onSelectRepos,
   onOpenSettings,
   hasToken,
   loading,
@@ -53,20 +53,46 @@ export default function BoardHeader({
         throughline
       </span>
 
-      {/* Repo selector */}
+      {/* Multi-repo chip selector */}
       {hasToken && repos.length > 0 && (
-        <select
-          className="text-sm rounded px-2 py-1.5 border outline-none cursor-pointer min-h-[44px]"
-          style={{ background: "#0E1620", borderColor: "#2A3949", color: "#E8EEF2" }}
-          value={selectedRepo}
-          onChange={(e) => onSelectRepo(e.target.value)}
-        >
-          {repos.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
+        <div className="flex items-center gap-1 flex-wrap">
+          {selectedRepos.map((r) => (
+            <span
+              key={r}
+              className="flex items-center gap-1 text-xs px-2 py-1 rounded"
+              style={{ background: "#0E1620", border: "1px solid #2A3949", color: "#E8EEF2" }}
+            >
+              <span className="font-mono">{r.split("/")[1] ?? r}</span>
+              {selectedRepos.length > 1 && (
+                <button
+                  className="ml-0.5 hover:text-red-400 transition-colors"
+                  style={{ color: "#7E93A6", fontSize: "14px", lineHeight: 1 }}
+                  onClick={() => onSelectRepos(selectedRepos.filter((x) => x !== r))}
+                  title={`Remove ${r}`}
+                >
+                  ×
+                </button>
+              )}
+            </span>
           ))}
-        </select>
+          {selectedRepos.length < 6 && repos.filter((r) => !selectedRepos.includes(r)).length > 0 && (
+            <select
+              className="text-xs rounded px-1.5 py-1 border outline-none cursor-pointer"
+              style={{ background: "#0E1620", borderColor: "#2A3949", color: "#7E93A6" }}
+              value=""
+              onChange={(e) => {
+                if (e.target.value) onSelectRepos([...selectedRepos, e.target.value]);
+              }}
+            >
+              <option value="" disabled>＋ repo</option>
+              {repos
+                .filter((r) => !selectedRepos.includes(r))
+                .map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+            </select>
+          )}
+        </div>
       )}
 
       {/* Active agents pill */}
@@ -83,15 +109,15 @@ export default function BoardHeader({
 
       {/* Last updated timestamp */}
       {updatedLabel && (
-        <span className="text-xs" style={{ color: "#4A6070" }}>
+        <span className="text-xs" style={{ color: "#7E93A6" }}>
           {updatedLabel}
         </span>
       )}
 
       {/* Needs-you filter */}
-      {needsAttentionCount > 0 && (
+      {(needsAttentionCount > 0 || onlyNeedsAttention) && (
         <button
-          className="text-xs px-2.5 py-2.5 rounded font-medium transition-all min-h-[44px] flex items-center"
+          className="text-xs px-2.5 py-2.5 rounded font-medium transition-all min-h-[44px] flex items-center gap-1"
           style={{
             background: onlyNeedsAttention ? "#F2614E" : "rgba(242,97,78,0.12)",
             color: onlyNeedsAttention ? "#fff" : "#F2614E",
@@ -99,7 +125,11 @@ export default function BoardHeader({
           }}
           onClick={onToggleFilter}
         >
-          ⚠ needs you ({needsAttentionCount})
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true" style={{flexShrink:0}}>
+            <path d="M6 1L11 10H1L6 1Z" stroke="currentColor" strokeWidth="1.5" fill="none" />
+            <path d="M6 5v2M6 8.5h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+          {needsAttentionCount > 0 ? `needs you (${needsAttentionCount})` : "show all"}
         </button>
       )}
 
@@ -117,11 +147,15 @@ export default function BoardHeader({
 
       {/* Settings */}
       <button
-        className="text-xs px-2.5 py-2.5 rounded font-medium hover:bg-white/5 transition-colors min-h-[44px] flex items-center"
+        className="text-xs px-2.5 py-2.5 rounded font-medium hover:bg-white/5 transition-colors min-h-[44px] flex items-center gap-1"
         style={{ color: "#7E93A6", border: "1px solid #2A3949" }}
         onClick={onOpenSettings}
       >
-        ⚙ Settings
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true" style={{flexShrink:0}}>
+          <circle cx="7" cy="7" r="2" stroke="currentColor" strokeWidth="1.5"/>
+          <path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.93 2.93l1.06 1.06M10.01 10.01l1.06 1.06M2.93 11.07l1.06-1.06M10.01 3.99l1.06-1.06" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+        Settings
       </button>
     </div>
   );

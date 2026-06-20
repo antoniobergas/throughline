@@ -16,7 +16,7 @@ interface BoxStyleProps {
   borderColor: string;
   background: string;
   opacity: number;
-  animation?: string;
+  borderStyle?: string;
 }
 
 function getBoxStyle(state: Stage["state"]): BoxStyleProps {
@@ -24,13 +24,13 @@ function getBoxStyle(state: Stage["state"]): BoxStyleProps {
     case "done":
       return { borderColor: "#6FD08C", background: "rgba(111,208,140,0.06)", opacity: 1 };
     case "active":
-      return { borderColor: "#38E1C6", background: "rgba(56,225,198,0.06)", opacity: 1, animation: "active" };
+      return { borderColor: "#38E1C6", background: "rgba(56,225,198,0.06)", opacity: 1 };
     case "failed":
       return { borderColor: "#F2614E", background: "rgba(242,97,78,0.08)", opacity: 1 };
     case "pending":
       return { borderColor: "#2A3949", background: "transparent", opacity: 0.55 };
     case "no_data":
-      return { borderColor: "#2A3949", background: "transparent", opacity: 0.4 };
+      return { borderColor: "#2A3949", background: "transparent", opacity: 0.4, borderStyle: "dashed" };
   }
 }
 
@@ -67,14 +67,15 @@ export default function StageBox({ stage, isLast, calm }: Props) {
           role={hasUrl ? "button" : undefined}
           tabIndex={hasUrl ? 0 : undefined}
           aria-label={`${STAGE_LABELS[stage.id]} stage — ${stage.state}`}
-          className={`relative flex flex-col items-center justify-center rounded transition-all select-none ${hasUrl ? "cursor-pointer hover:brightness-110" : "cursor-default"} ${isActive && !calm ? "animate-active-pulse" : ""}`}
+          className={`relative flex flex-col items-center justify-center rounded transition-all select-none ${hasUrl ? "cursor-pointer hover:brightness-125 hover:ring-1 hover:ring-white/10" : "cursor-default"} ${isActive && !calm ? "animate-active-pulse" : ""}`}
           style={{
             width: 80,
             minHeight: 56,
-            border: `2px solid ${style.borderColor}`,
+            border: `2px ${style.borderStyle ?? "solid"} ${style.borderColor}`,
             background: style.background,
             opacity: style.opacity,
             boxShadow: isActive && !calm ? `0 0 12px ${style.borderColor}40` : undefined,
+            ...(isActive && !calm ? { '--pulse-color': style.borderColor } as React.CSSProperties : {}),
           }}
           onClick={hasUrl ? handleClick : undefined}
           onKeyDown={hasUrl ? (e) => { if (e.key === "Enter" || e.key === " ") handleClick(); } : undefined}
@@ -103,8 +104,8 @@ export default function StageBox({ stage, isLast, calm }: Props) {
         {/* Arrow connector */}
         {!isLast && (
           <div className="flex items-center" style={{ width: 20 }}>
-            <div className="h-px flex-1" style={{ backgroundColor: "#2A3949" }} />
-            <svg width="8" height="8" viewBox="0 0 8 8" style={{ color: "#2A3949", flexShrink: 0 }}>
+            <div style={{ height: 1.5, flex: 1, backgroundColor: "#3D5266" }} />
+            <svg width="8" height="8" viewBox="0 0 8 8" style={{ color: "#3D5266", flexShrink: 0 }}>
               <path d="M0 4h6M4 1l3 3-3 3" stroke="currentColor" strokeWidth="1.5" fill="none" />
             </svg>
           </div>

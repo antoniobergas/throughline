@@ -70,7 +70,7 @@ export class GitHubClient {
 
       // Requested reviewers may be null in the Octokit type for closed PRs
       const requestedReviewers = (pr.requested_reviewers ?? []).filter(Boolean) as { login: string }[];
-      const reviewStage = await this.buildReviewStage(owner, repo, pr.number, requestedReviewers, prUrl, me, needsAttention);
+      const reviewStage = await this.buildReviewStage(owner, repo, pr.number, requestedReviewers, prUrl, me, pr.user?.login ?? "", needsAttention);
 
       const mergeableState = (pr as unknown as { mergeable_state?: string }).mergeable_state ?? "";
       if (mergeableState === "dirty" || mergeableState === "conflicting") {
@@ -114,12 +114,15 @@ export class GitHubClient {
       if (!runs.length) return noData("checks");
 
       let passed = 0;
+      let skipped = 0;
       let failedUrl: string | undefined;
       let anyInProgress = false;
 
       for (const run of runs) {
-        if (run.conclusion === "success" || run.conclusion === "skipped" || run.conclusion === "neutral") {
+        if (run.conclusion === "success") {
           passed++;
+        } else if (run.conclusion === "skipped" || run.conclusion === "neutral") {
+          skipped++;
         } else if (
           run.conclusion === "failure" ||
           run.conclusion === "timed_out" ||
@@ -132,11 +135,16 @@ export class GitHubClient {
         if (run.status === "in_progress" || run.status === "queued") anyInProgress = true;
       }
 
+      const total = runs.length;
+      const summaryParts = [`${passed}/${total}`];
+      if (skipped > 0) summaryParts.push(`${skipped} skipped`);
+      const summary = summaryParts.join(", ");
+
       const state: StageState = failedUrl ? "failed" : anyInProgress ? "active" : "done";
       if (failedUrl) needsAttention.push({ reason: "check_failed", stage: "checks", url: failedUrl });
 
       return {
-        id: "checks", state, summary: `${passed}/${runs.length}`,
+        id: "checks", state, summary,
         url: `https://github.com/${owner}/${repo}/actions`,
         logUrl: failedUrl,
         satellites: [],
@@ -153,6 +161,7 @@ export class GitHubClient {
     requested: { login: string }[],
     prUrl: string,
     me: string,
+    prAuthor: string,
     needsAttention: Attention[],
   ): Promise<Stage> {
     try {
@@ -179,8 +188,8 @@ export class GitHubClient {
         }
       }
 
-      // attention for changes_requested fires only when BOTH: a reviewer requested changes AND auth user is asked to re-review
-      if (anyChangesRequested && iAmRequested) {
+      const iAmAuthor = prAuthor === me && me !== "";
+      if (anyChangesRequested && (iAmRequested || iAmAuthor)) {
         needsAttention.push({ reason: "changes_requested", stage: "review", url: prUrl });
       }
 

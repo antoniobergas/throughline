@@ -15,8 +15,8 @@
 }
 
 @keyframes subtle-pulse {
-  0%, 100% { box-shadow: 0 0 8px currentColor; }
-  50% { box-shadow: 0 0 18px currentColor; }
+  0%, 100% { box-shadow: 0 0 8px var(--pulse-color, #38E1C6); }
+  50% { box-shadow: 0 0 18px var(--pulse-color, #38E1C6); }
 }
 
 .animate-active-pulse {

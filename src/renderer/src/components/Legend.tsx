@@ -1,9 +1,9 @@
 export default function Legend() {
-  const items = [
+  const items: { color: string; label: string; dim: boolean; faded?: boolean }[] = [
     { color: "#6FD08C", label: "done", dim: false },
-    { color: "#38E1C6", label: "active", pulse: true, dim: false },
+    { color: "#38E1C6", label: "active", dim: false },
     { color: "#F2614E", label: "failed", dim: false },
-    { color: "#2A3949", label: "pending", dim: false },
+    { color: "#2A3949", label: "pending", dim: false, faded: true },
     { color: "#2A3949", label: "no data", dim: true },
   ];
 
@@ -21,10 +21,16 @@ export default function Legend() {
     >
       <span className="font-medium">Stage:</span>
       {items.map((item) => (
-        <span key={item.label} className="flex items-center gap-1.5" style={{ opacity: item.dim ? 0.4 : 1 }}>
+        <span key={item.label} className="flex items-center gap-1.5" style={{ opacity: item.dim ? 0.55 : 1 }}>
           <span
-            className="inline-block w-3 h-3 rounded-sm border"
-            style={{ borderColor: item.color, background: `${item.color}18`, borderStyle: item.dim ? "dashed" : "solid" }}
+            className={`inline-block w-3 h-3 rounded-sm border ${item.label === "active" ? "animate-active-pulse" : ""}`}
+            style={{
+              borderColor: item.color,
+              background: `${item.color}18`,
+              borderStyle: item.dim ? "dashed" : "solid",
+              opacity: item.faded ? 0.55 : 1,
+              ...(item.label === "active" ? ({ '--pulse-color': '#38E1C6' } as React.CSSProperties) : {}),
+            }}
           />
           {item.label}
         </span>

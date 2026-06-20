@@ -1,10 +1,13 @@
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import path from "path";
 import { GitHubClient } from "./github";
-import { getToken, setToken, clearToken, getSelectedRepo, setSelectedRepo } from "./store";
+import { getToken, setToken, clearToken, getSelectedRepo, setSelectedRepo, getSelectedRepos, setSelectedRepos } from "./store";
 import type { AppSettings, FeatureFlow } from "../shared/types";
 
 let client: GitHubClient | null = null;
+
+const knownAttentionIds = new Set<string>();
+let isFirstLoad = true;
 
 function initClient(): void {
   const token = getToken();
@@ -135,6 +138,36 @@ ipcMain.handle("get-feature-flows", async (_e, repo: string): Promise<FeatureFlo
 
 ipcMain.handle("set-selected-repo", (_e, repo: string): void => {
   setSelectedRepo(repo);
+});
+
+ipcMain.handle("get-selected-repos", (): string[] => {
+  return getSelectedRepos();
+});
+
+ipcMain.handle("set-selected-repos", (_e, repos: string[]): void => {
+  setSelectedRepos(repos);
+});
+
+ipcMain.handle("report-attention", (_e, items: Array<{ id: string; reason: string; title: string }>): void => {
+  if (isFirstLoad) {
+    isFirstLoad = false;
+    for (const item of items) knownAttentionIds.add(item.id);
+    return;
+  }
+  const currentIds = new Set(items.map((i) => i.id));
+  for (const item of items) {
+    if (!knownAttentionIds.has(item.id)) {
+      const { Notification } = require("electron") as typeof import("electron");
+      const n = new Notification({
+        title: "throughline — needs attention",
+        body: `${item.title}: ${item.reason.replace(/_/g, " ")}`,
+      });
+      n.show();
+    }
+  }
+  // Sync known set with current
+  knownAttentionIds.clear();
+  for (const id of currentIds) knownAttentionIds.add(id);
 });
 
 ipcMain.handle("open-url", (_e, url: string): void => {

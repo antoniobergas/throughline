@@ -5,6 +5,7 @@ import { app } from "electron";
 interface StoreData {
   token?: string;
   selectedRepo?: string;
+  selectedRepos?: string[];
 }
 
 function getStorePath(): string {
@@ -44,4 +45,12 @@ export function getSelectedRepo(): string | undefined {
 
 export function setSelectedRepo(repo: string): void {
   write({ ...read(), selectedRepo: repo });
+}
+
+export function getSelectedRepos(): string[] {
+  return read().selectedRepos ?? [];
+}
+
+export function setSelectedRepos(repos: string[]): void {
+  write({ ...read(), selectedRepos: repos });
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { testToken, isElectron } from "../electronApi";
+import { testToken, isElectron, openUrl } from "../electronApi";
 
 interface Props {
   currentToken: string;
@@ -12,7 +12,7 @@ interface Props {
 type SaveStatus = "idle" | "testing" | "saving" | "error";
 
 export default function SettingsModal({ currentToken, onSave, onClear, onClose, hasToken }: Props) {
-  const [draft, setDraft] = useState(currentToken);
+  const [draft, setDraft] = useState("");
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -56,6 +56,7 @@ export default function SettingsModal({ currentToken, onSave, onClear, onClose, 
   const buttonLabel = (() => {
     if (status === "testing") return "Verifying token…";
     if (status === "saving") return "Saving…";
+    if (hasToken && !draft.trim()) return "Token already saved";
     return "Save token";
   })();
 
@@ -87,6 +88,12 @@ export default function SettingsModal({ currentToken, onSave, onClear, onClose, 
           <label className="block text-xs font-medium mb-1.5" style={{ color: "#7E93A6" }}>
             GitHub Fine-Grained PAT
           </label>
+          {hasToken && !draft && (
+            <div className="flex items-center gap-1.5 mt-1.5 mb-1">
+              <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#6FD08C" }} />
+              <span className="text-xs" style={{ color: "#6FD08C" }}>Token saved</span>
+            </div>
+          )}
           <input
             type="password"
             className="w-full rounded px-3 py-2 outline-none font-mono"
@@ -101,7 +108,15 @@ export default function SettingsModal({ currentToken, onSave, onClear, onClose, 
             spellCheck={false}
           />
           <p className="mt-2 text-xs" style={{ color: "#7E93A6" }}>
-            Required scopes: Metadata, Contents, Pull requests, Actions, Checks, Commit statuses, Deployments, Environments
+            Required scopes: Metadata, Contents, Pull requests, Actions, Checks, Commit statuses, Deployments, Environments.{" "}
+            <button
+              className="underline hover:no-underline"
+              style={{ color: "#38E1C6", background: "transparent", border: "none", padding: 0, cursor: "pointer", fontSize: "inherit" }}
+              onClick={() => openUrl("https://github.com/settings/tokens?type=beta")}
+              type="button"
+            >
+              Create token on GitHub →
+            </button>
           </p>
 
           {status === "error" && errorMsg && (
@@ -116,7 +131,7 @@ export default function SettingsModal({ currentToken, onSave, onClear, onClose, 
             className="flex-1 py-2 rounded text-sm font-medium transition-colors hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
             style={{ background: "#38E1C6", color: "#0E1620" }}
             onClick={handleSave}
-            disabled={isBusy || !draft.trim()}
+            disabled={isBusy || !draft.trim() || draft.trim() === currentToken}
           >
             {buttonLabel}
           </button>

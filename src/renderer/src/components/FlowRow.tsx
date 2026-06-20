@@ -30,7 +30,7 @@ export default function FlowRow({ flow, calm }: Props) {
       style={{
         background: "#16212E",
         border: hasAttention ? "1px solid rgba(242,97,78,0.3)" : "1px solid #2A3949",
-        opacity: calm && !hasAttention ? 0.65 : 1,
+        opacity: calm && !hasAttention ? 0.8 : 1,
         minHeight: 72,
       }}
     >
@@ -50,21 +50,26 @@ export default function FlowRow({ flow, calm }: Props) {
           <button
             onClick={() => prUrl && openUrl(prUrl)}
             title={prUrl ? "Open PR on GitHub" : flow.title}
-            className="text-sm font-medium truncate text-left bg-transparent border-0 p-0"
+            className={`text-sm font-medium truncate text-left bg-transparent border-0 p-0 flex items-center gap-1 ${prUrl ? "hover:underline" : ""}`}
             style={{
               color: hasAttention ? "#E8EEF2" : "#B0BEC5",
               maxWidth: 280,
               cursor: prUrl ? "pointer" : "default",
             }}
           >
-            {flow.title}
+            <span className="truncate">{flow.title}</span>
+            {prUrl && (
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true" style={{ flexShrink: 0, opacity: 0.5 }}>
+                <path d="M1 9L9 1M9 1H4M9 1V6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
           </button>
           <span
             className="text-xs px-1.5 py-0.5 rounded font-mono flex-shrink-0 group-hover:opacity-100 transition-opacity"
             style={{
               background: "#2A3949",
               color: "#7E93A6",
-              opacity: calm && !hasAttention ? 0 : 1,
+              opacity: calm && !hasAttention ? 0.25 : 1,
             }}
           >
             {flow.branch.length > 28 ? flow.branch.slice(0, 28) + "…" : flow.branch}
@@ -75,11 +80,15 @@ export default function FlowRow({ flow, calm }: Props) {
             flow.needsAttention.map((a, i) => (
               <button
                 key={i}
-                className="text-xs px-2 py-1.5 rounded font-medium flex-shrink-0 hover:brightness-110 transition-all flex items-center min-h-[36px]"
+                className="text-xs px-2 py-1.5 rounded font-medium flex-shrink-0 hover:brightness-110 transition-all flex items-center gap-1.5 min-h-[36px]"
                 style={{ background: "rgba(242,97,78,0.18)", color: "#F2614E", border: "1px solid rgba(242,97,78,0.4)" }}
                 onClick={() => openUrl(a.url)}
               >
-                ⚠ {ATTENTION_LABELS[a.reason] ?? a.reason}
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+                  <path d="M5.5 1L10 9.5H1L5.5 1Z" stroke="currentColor" strokeWidth="1.4" fill="none" />
+                  <path d="M5.5 4.5v2M5.5 8h.01" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                </svg>
+                {ATTENTION_LABELS[a.reason] ?? a.reason}
               </button>
             ))}
         </div>
@@ -99,7 +108,7 @@ export default function FlowRow({ flow, calm }: Props) {
                   {stageId === "merge" && (
                     <div
                       className="self-stretch flex items-center mx-1"
-                      style={{ borderLeft: "2px dashed #2A3949", height: 52 }}
+                      style={{ borderLeft: "2px dashed #3D5266", minHeight: 56 }}
                     />
                   )}
                   <StageBox stage={stage} isLast={i === STAGE_ORDER.length - 1} calm={calm && !hasAttention} />

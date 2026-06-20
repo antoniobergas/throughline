@@ -50,4 +50,5 @@ export interface FeatureFlow {
 export interface AppSettings {
   token?: string;
   selectedRepo?: string;
+  selectedRepos?: string[];
 }

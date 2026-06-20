@@ -16,6 +16,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("get-feature-flows", repo),
   setSelectedRepo: (repo: string): Promise<void> =>
     ipcRenderer.invoke("set-selected-repo", repo),
+  getSelectedRepos: (): Promise<string[]> =>
+    ipcRenderer.invoke("get-selected-repos"),
+  setSelectedRepos: (repos: string[]): Promise<void> =>
+    ipcRenderer.invoke("set-selected-repos", repos),
+  reportAttention: (items: Array<{ id: string; reason: string; title: string }>): Promise<void> =>
+    ipcRenderer.invoke("report-attention", items),
   openUrl: (url: string): Promise<void> =>
     ipcRenderer.invoke("open-url", url),
 });

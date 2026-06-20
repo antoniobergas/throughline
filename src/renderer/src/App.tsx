@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FeatureFlow } from "../../shared/types";
 import { MOCK_FLOWS } from "./mockData";
-import { getSettings, setToken, clearToken, listRepos, getFeatureFlows, setSelectedRepo as persistSelectedRepo, isElectron } from "./electronApi";
+import { getSettings, setToken, clearToken, listRepos, getFeatureFlows, getSelectedRepos, setSelectedRepos, reportAttention, isElectron } from "./electronApi";
 import BoardHeader from "./components/BoardHeader";
 import StageHeaderRow from "./components/StageHeaderRow";
 import FlowRow from "./components/FlowRow";
 import SettingsModal from "./components/SettingsModal";
 import Legend from "./components/Legend";
 
-const POLL_INTERVAL = 30_000;
+const POLL_INTERVAL = 15_000;
 const MAX_CONSECUTIVE_FAILURES = 3;
 
 // ── Error classification ───────────────────────────────────────────────────────
@@ -63,9 +63,18 @@ function buildErrorCode(parsed: ParsedError): string {
   }
 }
 
+const ATTENTION_REASON_LABELS: Record<string, string> = {
+  check_failed: "checks failed",
+  review_requested: "review requested",
+  changes_requested: "changes requested",
+  deploy_waiting_approval: "deploy approval needed",
+  deploy_failed: "deploy failed",
+  merge_conflict: "merge conflict",
+};
+
 export default function App() {
   const [token, setTokenState] = useState("");
-  const [selectedRepo, setSelectedRepo] = useState("");
+  const [selectedRepos, setSelectedRepos_state] = useState<string[]>([]);
   const [repos, setRepos] = useState<string[]>([]);
   const [flows, setFlows] = useState<FeatureFlow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -79,6 +88,8 @@ export default function App() {
   const consecutiveFailuresRef = useRef(0);
   const rateLimitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadGenRef = useRef<number>(0);
+  const prevAttentionIdsRef = useRef<Set<string>>(new Set());
+  const isFirstPollRef = useRef(true);
 
   const hasToken = !!token;
   const inElectron = isElectron();
@@ -91,9 +102,14 @@ export default function App() {
       return;
     }
     getSettings()
-      .then((s) => {
+      .then(async (s) => {
         if (s.token) setTokenState(s.token);
-        if (s.selectedRepo) setSelectedRepo(s.selectedRepo);
+        const saved = await getSelectedRepos().catch(() => []);
+        if (saved.length > 0) {
+          setSelectedRepos_state(saved);
+        } else if (s.selectedRepo) {
+          setSelectedRepos_state([s.selectedRepo]);
+        }
       })
       .catch(() => {
         setUseMock(true);
@@ -113,20 +129,25 @@ export default function App() {
     try {
       const r = await listRepos();
       setRepos(r);
-      if (r.length > 0 && !selectedRepo) setSelectedRepo(r[0]);
+      if (r.length > 0 && selectedRepos.length === 0) {
+        const initial = [r[0]];
+        setSelectedRepos_state(initial);
+        if (inElectron) setSelectedRepos(initial);
+      }
     } catch (e) {
       const parsed = parseErrorMessage(toMessage(e));
       setError(buildErrorCode(parsed));
     }
-  }, [hasToken, inElectron, selectedRepo]);
+  }, [hasToken, inElectron, selectedRepos]);
 
-  const loadFlows = useCallback(async (repo: string) => {
-    if (!repo || !hasToken || !inElectron) return;
+  const loadFlows = useCallback(async (repoList: string[]) => {
+    if (!repoList.length || !hasToken || !inElectron) return;
     const generation = ++loadGenRef.current;
     setLoading(true);
     try {
-      const data = await getFeatureFlows(repo);
+      const results = await Promise.all(repoList.map((r) => getFeatureFlows(r)));
       if (generation !== loadGenRef.current) return;
+      const data = results.flat();
       setFlows((prev) => {
         const dataMap = new Map(data.map((f) => [f.id, f]));
         const existingIds = new Set(prev.map((f) => f.id));
@@ -141,6 +162,21 @@ export default function App() {
       setLastUpdatedAt(new Date());
       consecutiveFailuresRef.current = 0;
       setAutoRefreshPaused(false);
+
+      // Notifications
+      const currentIds = new Set(data.flatMap((f) => f.needsAttention.map((a) => `${f.id}:${a.reason}`)));
+      if (!isFirstPollRef.current) {
+        const newItems = [...currentIds]
+          .filter((id) => !prevAttentionIdsRef.current.has(id))
+          .map((id) => {
+            const [flowId, reason] = id.split(":");
+            const flow = data.find((f) => f.id === flowId);
+            return { id, reason: ATTENTION_REASON_LABELS[reason] ?? reason, title: flow?.title ?? "" };
+          });
+        if (newItems.length > 0) reportAttention(newItems);
+      }
+      isFirstPollRef.current = false;
+      prevAttentionIdsRef.current = currentIds;
     } catch (e) {
       if (generation !== loadGenRef.current) return;
       const parsed = parseErrorMessage(toMessage(e));
@@ -182,28 +218,28 @@ export default function App() {
 
   // Load flows when repo changes
   useEffect(() => {
-    if (selectedRepo) {
+    if (selectedRepos.length > 0) {
       consecutiveFailuresRef.current = 0;
       setAutoRefreshPaused(false);
-      loadFlows(selectedRepo);
+      loadFlows(selectedRepos);
     }
-  }, [selectedRepo, loadFlows]);
+  }, [selectedRepos, loadFlows]);
 
   // Polling
   useEffect(() => {
     stopPolling();
-    if (hasToken && selectedRepo && inElectron && !autoRefreshPaused) {
-      pollRef.current = setInterval(() => loadFlows(selectedRepo), POLL_INTERVAL);
+    if (hasToken && selectedRepos.length > 0 && inElectron && !autoRefreshPaused) {
+      pollRef.current = setInterval(() => loadFlows(selectedRepos), POLL_INTERVAL);
     }
     return () => stopPolling();
-  }, [hasToken, selectedRepo, inElectron, loadFlows, autoRefreshPaused, stopPolling]);
+  }, [hasToken, selectedRepos, inElectron, loadFlows, autoRefreshPaused, stopPolling]);
 
   const handleRestartPolling = useCallback(() => {
     consecutiveFailuresRef.current = 0;
     setAutoRefreshPaused(false);
     setError(null);
-    if (selectedRepo) loadFlows(selectedRepo);
-  }, [selectedRepo, loadFlows]);
+    if (selectedRepos.length > 0) loadFlows(selectedRepos);
+  }, [selectedRepos, loadFlows]);
 
   const handleSaveToken = async (t: string) => {
     if (inElectron) await setToken(t);
@@ -213,6 +249,7 @@ export default function App() {
     setShowSettings(false);
     consecutiveFailuresRef.current = 0;
     setAutoRefreshPaused(false);
+    setSelectedRepos_state([]);
     await loadRepos();
   };
 
@@ -220,15 +257,16 @@ export default function App() {
     if (inElectron) await clearToken();
     setTokenState("");
     setRepos([]);
+    setSelectedRepos_state([]);
     setFlows(MOCK_FLOWS);
     setUseMock(true);
     setShowSettings(false);
   };
 
-  const handleSelectRepo = (r: string) => {
-    setSelectedRepo(r);
+  const handleSelectRepos = (repos: string[]) => {
+    setSelectedRepos_state(repos);
     setFlows([]);
-    if (inElectron) persistSelectedRepo(r);
+    if (inElectron) setSelectedRepos(repos);
   };
 
   const displayed = useMock
@@ -252,8 +290,8 @@ export default function App() {
         onlyNeedsAttention={onlyNeedsAttention}
         onToggleFilter={() => setOnlyNeedsAttention((v) => !v)}
         repos={repos}
-        selectedRepo={selectedRepo}
-        onSelectRepo={handleSelectRepo}
+        selectedRepos={selectedRepos}
+        onSelectRepos={handleSelectRepos}
         onOpenSettings={() => setShowSettings(true)}
         hasToken={hasToken || useMock}
         loading={loading}
@@ -261,8 +299,8 @@ export default function App() {
         onRefresh={() => {
           if (autoRefreshPaused) {
             handleRestartPolling();
-          } else if (selectedRepo) {
-            loadFlows(selectedRepo);
+          } else {
+            loadFlows(selectedRepos);
           }
         }}
       />
@@ -297,7 +335,7 @@ export default function App() {
             className="mx-4 mt-3 px-4 py-2.5 rounded text-xs flex items-center gap-2"
             style={{ background: "rgba(56,225,198,0.08)", border: "1px solid rgba(56,225,198,0.2)", color: "#38E1C6" }}
           >
-            <span>Demo — sample data. Connect a GitHub repo to see your real PRs.</span>
+            <span>Demo — PRs flowing from code to production. Red = needs your attention. Connect a GitHub repo to see your real data.</span>
             <button
               className="px-3 py-1 rounded text-xs font-medium ml-auto flex-shrink-0 hover:brightness-110 transition-all"
               style={{ background: "#38E1C6", color: "#0E1620" }}
@@ -328,7 +366,7 @@ export default function App() {
               <p className="text-sm">Nothing needs your attention.</p>
             ) : (
               <>
-                <p className="text-sm">No open PRs{selectedRepo ? ` in ${selectedRepo}` : ""}.</p>
+                <p className="text-sm">No open PRs.</p>
                 <p className="text-xs text-center max-w-xs mt-1">
                   Verify your token has the{" "}
                   <span style={{ color: "#E8EEF2" }}>Pull requests</span> scope.
@@ -418,7 +456,7 @@ function ErrorBanner({ error, onOpenSettings, onRestart }: ErrorBannerProps) {
       style={{ background: "rgba(242,97,78,0.1)", border: "1px solid rgba(242,97,78,0.3)", color: "#F2614E" }}
     >
       <span className="font-medium">{heading}</span>
-      {detail && <span className="text-xs" style={{ color: "#C96B5E" }}>{detail}</span>}
+      {detail && <span className="text-xs" style={{ color: "#7E93A6" }}>{detail}</span>}
       {cta === "settings" && (
         <button className="self-start text-xs underline hover:no-underline" style={{ color: "#F2614E" }} onClick={onOpenSettings}>
           Open Settings →
