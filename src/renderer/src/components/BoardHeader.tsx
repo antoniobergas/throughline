@@ -9,6 +9,7 @@ interface Props {
   selectedRepos: string[];
   onSelectRepos: (repos: string[]) => void;
   onOpenSettings: () => void;
+  onNewWorkflow: () => void;
   hasToken: boolean;
   loading: boolean;
   lastUpdatedAt: Date | null;
@@ -24,6 +25,7 @@ export default function BoardHeader({
   selectedRepos,
   onSelectRepos,
   onOpenSettings,
+  onNewWorkflow,
   hasToken,
   loading,
   lastUpdatedAt,
@@ -428,6 +430,19 @@ export default function BoardHeader({
           </svg>
         </button>
       )}
+
+      {/* New Workflow */}
+      <button
+        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md font-semibold transition-all flex-shrink-0"
+        style={{ background: "#38E1C6", color: "#080E14" }}
+        onClick={onNewWorkflow}
+        title="New Workflow"
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+        </svg>
+        New
+      </button>
 
       {/* Settings */}
       <button

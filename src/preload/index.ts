@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { FeatureFlow } from "../shared/types";
+import type { FeatureFlow, AgentProviderInfo, WorkflowRun, AgentProviderId } from "../shared/types";
 
 contextBridge.exposeInMainWorld("electronAPI", {
   getSettings: (): Promise<{ hasToken: boolean; login?: string; selectedRepo?: string }> =>
@@ -41,4 +41,38 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("report-attention", items),
   openUrl: (url: string): Promise<void> =>
     ipcRenderer.invoke("open-url", url),
+
+  // ── Workflow / agent APIs ───────────────────────────────────────────────────
+  getAgentProviders: (): Promise<AgentProviderInfo[]> =>
+    ipcRenderer.invoke("get-agent-providers"),
+  createWorkflow: (opts: {
+    repo: string;
+    isLocal: boolean;
+    branch: string;
+    description: string;
+    provider: AgentProviderId;
+    subagentCount: number;
+  }): Promise<WorkflowRun[]> =>
+    ipcRenderer.invoke("create-workflow", opts),
+  getWorkflows: (): Promise<WorkflowRun[]> =>
+    ipcRenderer.invoke("get-workflows"),
+  getWorkflowLogs: (runId: string): Promise<string[]> =>
+    ipcRenderer.invoke("get-workflow-logs", runId),
+  abortWorkflow: (runId: string): Promise<void> =>
+    ipcRenderer.invoke("abort-workflow", runId),
+  pickLocalFolder: (): Promise<{ path: string; valid: boolean; remote?: string } | null> =>
+    ipcRenderer.invoke("pick-local-folder"),
+  slugifyBranch: (text: string): Promise<string> =>
+    ipcRenderer.invoke("slugify-branch", text),
+  onWorkflowUpdate: (callback: (run: WorkflowRun) => void): (() => void) => {
+    const handler = (_: Electron.IpcRendererEvent, run: WorkflowRun) => callback(run);
+    ipcRenderer.on("workflow-update", handler);
+    return () => ipcRenderer.removeListener("workflow-update", handler);
+  },
+  onWorkflowLog: (runId: string, callback: (line: string) => void): (() => void) => {
+    const channel = `workflow-log:${runId}`;
+    const handler = (_: Electron.IpcRendererEvent, line: string) => callback(line);
+    ipcRenderer.on(channel, handler);
+    return () => ipcRenderer.removeListener(channel, handler);
+  },
 });

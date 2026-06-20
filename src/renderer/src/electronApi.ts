@@ -1,4 +1,4 @@
-import type { FeatureFlow } from "../../shared/types";
+import type { FeatureFlow, AgentProviderInfo, WorkflowRun, AgentProviderId } from "../../shared/types";
 
 type AuthResult = { ok: true; login: string } | { ok: false; error: string };
 
@@ -15,6 +15,23 @@ interface ElectronAPI {
   setSelectedRepos(repos: string[]): Promise<void>;
   reportAttention(items: Array<{ id: string; reason: string; title: string }>): Promise<void>;
   openUrl(url: string): Promise<void>;
+  // Workflows
+  getAgentProviders(): Promise<AgentProviderInfo[]>;
+  createWorkflow(opts: {
+    repo: string;
+    isLocal: boolean;
+    branch: string;
+    description: string;
+    provider: AgentProviderId;
+    subagentCount: number;
+  }): Promise<WorkflowRun[]>;
+  getWorkflows(): Promise<WorkflowRun[]>;
+  getWorkflowLogs(runId: string): Promise<string[]>;
+  abortWorkflow(runId: string): Promise<void>;
+  pickLocalFolder(): Promise<{ path: string; valid: boolean; remote?: string } | null>;
+  slugifyBranch(text: string): Promise<string>;
+  onWorkflowUpdate(callback: (run: WorkflowRun) => void): () => void;
+  onWorkflowLog(runId: string, callback: (line: string) => void): () => void;
 }
 
 declare global {
@@ -50,3 +67,12 @@ export const openUrl = (url: string) => {
     window.open(url, "_blank", "noopener");
   }
 };
+export const getAgentProviders = () => api().getAgentProviders();
+export const createWorkflow = (opts: Parameters<ElectronAPI["createWorkflow"]>[0]) => api().createWorkflow(opts);
+export const getWorkflows = () => api().getWorkflows();
+export const getWorkflowLogs = (runId: string) => api().getWorkflowLogs(runId);
+export const abortWorkflow = (runId: string) => api().abortWorkflow(runId);
+export const pickLocalFolder = () => api().pickLocalFolder();
+export const slugifyBranch = (text: string) => api().slugifyBranch(text);
+export const onWorkflowUpdate = (cb: (run: WorkflowRun) => void) => api().onWorkflowUpdate(cb);
+export const onWorkflowLog = (runId: string, cb: (line: string) => void) => api().onWorkflowLog(runId, cb);

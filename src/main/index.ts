@@ -1,9 +1,19 @@
-import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { app, BrowserWindow, ipcMain, shell, dialog } from "electron";
 import path from "path";
 import { GitHubClient } from "./github";
 import { GITHUB_OAUTH_CLIENT_ID, requestDeviceCode, pollForToken } from "./auth";
 import { getToken, setToken, clearToken, getSelectedRepo, setSelectedRepo, getSelectedRepos, setSelectedRepos } from "./store";
-import type { FeatureFlow } from "../shared/types";
+import { getProviderInfos } from "./agents/registry";
+import {
+  setWorkflowWindow,
+  createWorkflows,
+  getWorkflows,
+  getWorkflowLogs,
+  abortWorkflow,
+  getLocalRepoInfo,
+  slugify,
+} from "./workflow-manager";
+import type { FeatureFlow, AgentProviderId } from "../shared/types";
 
 let client: GitHubClient | null = null;
 let authAbortController: AbortController | null = null;
@@ -16,7 +26,7 @@ function initClient(): void {
   client = token ? new GitHubClient(token) : null;
 }
 
-function createWindow(): void {
+function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -36,13 +46,18 @@ function createWindow(): void {
   } else {
     win.loadFile(path.join(__dirname, "../renderer/index.html"));
   }
+  return win;
 }
 
 app.whenReady().then(() => {
   initClient();
-  createWindow();
+  const win = createWindow();
+  setWorkflowWindow(win);
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      const w = createWindow();
+      setWorkflowWindow(w);
+    }
   });
 });
 
@@ -197,3 +212,44 @@ ipcMain.handle("report-attention", (_e, items: Array<{ id: string; reason: strin
 ipcMain.handle("open-url", (_e, url: string): void => {
   shell.openExternal(url);
 });
+
+// ── Workflow / agent IPC ──────────────────────────────────────────────────────
+
+ipcMain.handle("get-agent-providers", async () => {
+  return getProviderInfos(getToken());
+});
+
+ipcMain.handle(
+  "create-workflow",
+  async (
+    _e,
+    opts: {
+      repo: string;
+      isLocal: boolean;
+      branch: string;
+      description: string;
+      provider: AgentProviderId;
+      subagentCount: number;
+    },
+  ) => {
+    return createWorkflows({ ...opts, token: getToken() });
+  },
+);
+
+ipcMain.handle("get-workflows", () => getWorkflows());
+
+ipcMain.handle("get-workflow-logs", (_e, runId: string) => getWorkflowLogs(runId));
+
+ipcMain.handle("abort-workflow", (_e, runId: string) => abortWorkflow(runId));
+
+ipcMain.handle("pick-local-folder", async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ["openDirectory"],
+    title: "Select a git repository folder",
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  const folderPath = result.filePaths[0];
+  return { path: folderPath, ...(await getLocalRepoInfo(folderPath)) };
+});
+
+ipcMain.handle("slugify-branch", (_e, text: string) => `feat/${slugify(text)}`);

@@ -52,3 +52,39 @@ export interface AppSettings {
   selectedRepo?: string;
   selectedRepos?: string[];
 }
+
+// ── Workflows ─────────────────────────────────────────────────────────────────
+
+export type AgentProviderId = "claude-code" | "aider" | "copilot";
+
+export interface AgentProviderInfo {
+  id: AgentProviderId;
+  name: string;
+  description: string;
+  kind: "local" | "remote";
+  available: boolean;
+}
+
+export type WorkflowStatus = "cloning" | "running" | "done" | "failed" | "aborted";
+
+export interface WorkflowRun {
+  id: string;
+  /** "owner/repo" for GitHub repos, absolute path for local */
+  repo: string;
+  /** Short display name */
+  repoDisplay: string;
+  isLocal: boolean;
+  branch: string;
+  description: string;
+  provider: AgentProviderId;
+  status: WorkflowStatus;
+  prUrl?: string;
+  prNumber?: number;
+  startedAt: number;
+  endedAt?: number;
+  /** 1-based index when running as a subagent in a parallel set */
+  subagentIndex?: number;
+  /** parent workflow id for subagents */
+  parentId?: string;
+  exitCode?: number;
+}

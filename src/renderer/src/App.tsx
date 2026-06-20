@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { FeatureFlow } from "../../shared/types";
+import type { FeatureFlow, WorkflowRun } from "../../shared/types";
 import { MOCK_FLOWS } from "./mockData";
-import { getSettings, clearToken, listRepos, getFeatureFlows, getSelectedRepos, setSelectedRepos, reportAttention, isElectron } from "./electronApi";
+import { getSettings, clearToken, listRepos, getFeatureFlows, getSelectedRepos, setSelectedRepos, reportAttention, isElectron, getWorkflows, onWorkflowUpdate } from "./electronApi";
 import BoardHeader from "./components/BoardHeader";
 import StageHeaderRow from "./components/StageHeaderRow";
 import FlowRow from "./components/FlowRow";
 import SettingsModal from "./components/SettingsModal";
 import Legend from "./components/Legend";
+import NewWorkflowModal from "./components/NewWorkflowModal";
+import WorkflowRunCard from "./components/WorkflowRunCard";
+import LogDrawer from "./components/LogDrawer";
 
 const POLL_INTERVAL = 15_000;
 const MAX_CONSECUTIVE_FAILURES = 3;
@@ -81,6 +84,9 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showNewWorkflow, setShowNewWorkflow] = useState(false);
+  const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([]);
+  const [activeLogRun, setActiveLogRun] = useState<WorkflowRun | null>(null);
   const [onlyNeedsAttention, setOnlyNeedsAttention] = useState(false);
   const [useMock, setUseMock] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
@@ -116,6 +122,24 @@ export default function App() {
         setUseMock(true);
         setFlows(MOCK_FLOWS);
       });
+  }, [inElectron]);
+
+  // Load existing workflow runs + subscribe to live updates
+  useEffect(() => {
+    if (!inElectron) return;
+    getWorkflows().then(setWorkflowRuns).catch(() => {});
+    const unsub = onWorkflowUpdate((run) => {
+      setWorkflowRuns((prev) => {
+        const idx = prev.findIndex((r) => r.id === run.id);
+        if (idx === -1) return [run, ...prev];
+        const next = [...prev];
+        next[idx] = run;
+        return next;
+      });
+      // Also update the active log run if it matches
+      setActiveLogRun((prev) => prev?.id === run.id ? run : prev);
+    });
+    return unsub;
   }, [inElectron]);
 
   const stopPolling = useCallback(() => {
@@ -295,6 +319,7 @@ export default function App() {
         selectedRepos={selectedRepos}
         onSelectRepos={handleSelectRepos}
         onOpenSettings={() => setShowSettings(true)}
+        onNewWorkflow={() => setShowNewWorkflow(true)}
         hasToken={hasToken || useMock}
         loading={loading}
         lastUpdatedAt={lastUpdatedAt}
@@ -361,6 +386,22 @@ export default function App() {
           </div>
         )}
 
+        {/* Workflow runs */}
+        {workflowRuns.length > 0 && (
+          <div className="px-4 pt-3">
+            <p className="text-xs font-semibold mb-2 tracking-widest uppercase" style={{ color: "#3A5068", letterSpacing: "0.1em" }}>
+              Workflows
+            </p>
+            {workflowRuns.map((run) => (
+              <WorkflowRunCard
+                key={run.id}
+                run={run}
+                onClick={() => setActiveLogRun(run)}
+              />
+            ))}
+          </div>
+        )}
+
         {/* Board */}
         {displayed.length > 0 && (
           <div className="px-4 pt-2 pb-6">
@@ -408,6 +449,24 @@ export default function App() {
           onConnected={handleConnected}
           onClear={handleClearToken}
           onClose={() => setShowSettings(false)}
+        />
+      )}
+
+      {showNewWorkflow && (
+        <NewWorkflowModal
+          onCreated={(runs) => {
+            setWorkflowRuns((prev) => [...runs, ...prev]);
+            setShowNewWorkflow(false);
+            if (runs[0]) setActiveLogRun(runs[0]);
+          }}
+          onClose={() => setShowNewWorkflow(false)}
+        />
+      )}
+
+      {activeLogRun && (
+        <LogDrawer
+          run={activeLogRun}
+          onClose={() => setActiveLogRun(null)}
         />
       )}
     </div>
