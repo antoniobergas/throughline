@@ -22,9 +22,11 @@ export default function FlowRow({ flow, calm }: Props) {
 
   const stageMap = Object.fromEntries(flow.stages.map((s) => [s.id, s]));
 
+  const prUrl = flow.stages.find((s) => s.id === "pr")?.url;
+
   return (
     <div
-      className="flex items-start gap-0 rounded-lg mb-2 relative transition-all"
+      className="group flex items-start gap-0 rounded-lg mb-2 relative transition-all"
       style={{
         background: "#16212E",
         border: hasAttention ? "1px solid rgba(242,97,78,0.3)" : "1px solid #2A3949",
@@ -45,14 +47,26 @@ export default function FlowRow({ flow, calm }: Props) {
       <div className="flex flex-col flex-1 py-2 px-3 min-w-0">
         {/* Title row */}
         <div className="flex items-center gap-2 mb-2">
-          <span
-            className="text-sm font-medium truncate"
-            style={{ color: hasAttention ? "#E8EEF2" : "#B0BEC5", maxWidth: 280 }}
-            title={flow.title}
+          <button
+            onClick={() => prUrl && openUrl(prUrl)}
+            title={prUrl ? "Open PR on GitHub" : flow.title}
+            className="text-sm font-medium truncate text-left bg-transparent border-0 p-0"
+            style={{
+              color: hasAttention ? "#E8EEF2" : "#B0BEC5",
+              maxWidth: 280,
+              cursor: prUrl ? "pointer" : "default",
+            }}
           >
             {flow.title}
-          </span>
-          <span className="text-xs px-1.5 py-0.5 rounded font-mono flex-shrink-0" style={{ background: "#2A3949", color: "#7E93A6" }}>
+          </button>
+          <span
+            className="text-xs px-1.5 py-0.5 rounded font-mono flex-shrink-0 group-hover:opacity-100 transition-opacity"
+            style={{
+              background: "#2A3949",
+              color: "#7E93A6",
+              opacity: calm && !hasAttention ? 0 : 1,
+            }}
+          >
             {flow.branch.length > 28 ? flow.branch.slice(0, 28) + "…" : flow.branch}
           </span>
 
@@ -61,7 +75,7 @@ export default function FlowRow({ flow, calm }: Props) {
             flow.needsAttention.map((a, i) => (
               <button
                 key={i}
-                className="text-xs px-2 py-0.5 rounded font-medium flex-shrink-0 hover:brightness-110 transition-all"
+                className="text-xs px-2 py-1.5 rounded font-medium flex-shrink-0 hover:brightness-110 transition-all flex items-center min-h-[36px]"
                 style={{ background: "rgba(242,97,78,0.18)", color: "#F2614E", border: "1px solid rgba(242,97,78,0.4)" }}
                 onClick={() => openUrl(a.url)}
               >
@@ -70,27 +84,29 @@ export default function FlowRow({ flow, calm }: Props) {
             ))}
         </div>
 
-        {/* Stage pipeline */}
-        <div className="flex items-start">
-          {STAGE_ORDER.map((stageId, i) => {
-            const stage = stageMap[stageId] ?? {
-              id: stageId,
-              state: "no_data" as const,
-              satellites: [],
-            };
-            return (
-              <div key={stageId} className="flex items-start">
-                {/* Merge gate dashed line before MERGE stage */}
-                {stageId === "merge" && (
-                  <div
-                    className="self-stretch flex items-center mx-1"
-                    style={{ borderLeft: "2px dashed #2A3949", height: 52 }}
-                  />
-                )}
-                <StageBox stage={stage} isLast={i === STAGE_ORDER.length - 1} />
-              </div>
-            );
-          })}
+        {/* Stage pipeline — horizontally scrollable on narrow screens */}
+        <div className="overflow-x-auto -mx-3 px-3" style={{ WebkitOverflowScrolling: "touch" }}>
+          <div className="flex items-start" style={{ minWidth: "max-content" }}>
+            {STAGE_ORDER.map((stageId, i) => {
+              const stage = stageMap[stageId] ?? {
+                id: stageId,
+                state: "no_data" as const,
+                satellites: [],
+              };
+              return (
+                <div key={stageId} className="flex items-start">
+                  {/* Merge gate dashed line before MERGE stage */}
+                  {stageId === "merge" && (
+                    <div
+                      className="self-stretch flex items-center mx-1"
+                      style={{ borderLeft: "2px dashed #2A3949", height: 52 }}
+                    />
+                  )}
+                  <StageBox stage={stage} isLast={i === STAGE_ORDER.length - 1} calm={calm && !hasAttention} />
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

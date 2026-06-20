@@ -37,34 +37,48 @@ function getBoxStyle(state: Stage["state"]): BoxStyleProps {
 interface Props {
   stage: Stage;
   isLast?: boolean;
+  calm?: boolean;
 }
 
-export default function StageBox({ stage, isLast }: Props) {
+export default function StageBox({ stage, isLast, calm }: Props) {
   const style = getBoxStyle(stage.state);
   const isActive = stage.state === "active";
   const hasSatellites = stage.satellites.length > 0;
+  const hasUrl = !!(stage.logUrl ?? stage.url);
 
   const handleClick = () => {
     const url = stage.logUrl ?? stage.url;
     if (url) openUrl(url);
   };
 
+  const titleAttr = stage.summary
+    ? stage.summary
+    : stage.logUrl
+      ? "Open log"
+      : stage.url
+        ? "Open on GitHub"
+        : undefined;
+
   return (
     <div className="flex flex-col items-center">
       <div className="flex items-center">
         {/* Stage box */}
         <div
-          className={`relative flex flex-col items-center justify-center rounded cursor-pointer hover:brightness-110 transition-all select-none ${isActive ? "animate-active-pulse" : ""}`}
+          role={hasUrl ? "button" : undefined}
+          tabIndex={hasUrl ? 0 : undefined}
+          aria-label={`${STAGE_LABELS[stage.id]} stage — ${stage.state}`}
+          className={`relative flex flex-col items-center justify-center rounded transition-all select-none ${hasUrl ? "cursor-pointer hover:brightness-110" : "cursor-default"} ${isActive && !calm ? "animate-active-pulse" : ""}`}
           style={{
             width: 80,
-            minHeight: 52,
+            minHeight: 56,
             border: `2px solid ${style.borderColor}`,
             background: style.background,
             opacity: style.opacity,
-            boxShadow: isActive ? `0 0 12px ${style.borderColor}40` : undefined,
+            boxShadow: isActive && !calm ? `0 0 12px ${style.borderColor}40` : undefined,
           }}
-          onClick={handleClick}
-          title={stage.logUrl ? "Open log" : stage.url ? "Open on GitHub" : undefined}
+          onClick={hasUrl ? handleClick : undefined}
+          onKeyDown={hasUrl ? (e) => { if (e.key === "Enter" || e.key === " ") handleClick(); } : undefined}
+          title={titleAttr}
         >
           {/* State indicator dot for done */}
           {stage.state === "done" && (
@@ -72,7 +86,7 @@ export default function StageBox({ stage, isLast }: Props) {
           )}
           <span
             className="font-bold tracking-wider"
-            style={{ fontSize: 10, color: style.borderColor, opacity: stage.state === "pending" || stage.state === "no_data" ? 0.7 : 1 }}
+            style={{ fontSize: 12, color: style.borderColor, opacity: stage.state === "pending" || stage.state === "no_data" ? 0.7 : 1 }}
           >
             {STAGE_LABELS[stage.id]}
           </span>
@@ -101,7 +115,7 @@ export default function StageBox({ stage, isLast }: Props) {
       {hasSatellites && (
         <div className="flex flex-col gap-1 mt-2" style={{ width: 80 }}>
           {stage.satellites.map((sat) => (
-            <SatelliteChip key={sat.id} satellite={sat} />
+            <SatelliteChip key={sat.id} satellite={sat} calm={calm} />
           ))}
         </div>
       )}

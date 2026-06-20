@@ -1,9 +1,10 @@
 export default function Legend() {
   const items = [
-    { color: "#6FD08C", label: "done" },
-    { color: "#38E1C6", label: "active", pulse: true },
-    { color: "#F2614E", label: "failed" },
-    { color: "#2A3949", label: "pending" },
+    { color: "#6FD08C", label: "done", dim: false },
+    { color: "#38E1C6", label: "active", pulse: true, dim: false },
+    { color: "#F2614E", label: "failed", dim: false },
+    { color: "#2A3949", label: "pending", dim: false },
+    { color: "#2A3949", label: "no data", dim: true },
   ];
 
   const satellites = [
@@ -20,10 +21,10 @@ export default function Legend() {
     >
       <span className="font-medium">Stage:</span>
       {items.map((item) => (
-        <span key={item.label} className="flex items-center gap-1.5">
+        <span key={item.label} className="flex items-center gap-1.5" style={{ opacity: item.dim ? 0.4 : 1 }}>
           <span
             className="inline-block w-3 h-3 rounded-sm border"
-            style={{ borderColor: item.color, background: `${item.color}18` }}
+            style={{ borderColor: item.color, background: `${item.color}18`, borderStyle: item.dim ? "dashed" : "solid" }}
           />
           {item.label}
         </span>

@@ -17,9 +17,10 @@ const STATUS_COLORS: Record<string, string> = {
 
 interface Props {
   satellite: Satellite;
+  calm?: boolean;
 }
 
-export default function SatelliteChip({ satellite }: Props) {
+export default function SatelliteChip({ satellite, calm }: Props) {
   const accentColor = KIND_ACCENT[satellite.kind] ?? "#7E93A6";
   const dotColor = STATUS_COLORS[satellite.status] ?? "#7E93A6";
   const isRunning = satellite.status === "running";
@@ -42,10 +43,10 @@ export default function SatelliteChip({ satellite }: Props) {
       title={satellite.focus ?? satellite.label}
     >
       <span
-        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isRunning ? "status-dot-running" : ""}`}
+        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isRunning && !calm ? "status-dot-running" : ""}`}
         style={{ backgroundColor: dotColor }}
       />
-      <span className="text-[#E8EEF2] truncate font-medium" style={{ fontSize: "11px" }}>
+      <span className="text-[#E8EEF2] truncate font-medium" style={{ fontSize: "12px" }}>
         {satellite.label}
       </span>
     </div>

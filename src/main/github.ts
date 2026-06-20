@@ -120,13 +120,19 @@ export class GitHubClient {
       for (const run of runs) {
         if (run.conclusion === "success" || run.conclusion === "skipped" || run.conclusion === "neutral") {
           passed++;
-        } else if (run.conclusion === "failure" || run.conclusion === "timed_out" || run.conclusion === "cancelled") {
+        } else if (
+          run.conclusion === "failure" ||
+          run.conclusion === "timed_out" ||
+          run.conclusion === "cancelled" ||
+          run.conclusion === "action_required" ||
+          run.conclusion === "stale"
+        ) {
           failedUrl ??= run.details_url ?? run.html_url ?? undefined;
         }
         if (run.status === "in_progress" || run.status === "queued") anyInProgress = true;
       }
 
-      const state: StageState = failedUrl ? "failed" : anyInProgress ? "active" : passed === runs.length ? "done" : "pending";
+      const state: StageState = failedUrl ? "failed" : anyInProgress ? "active" : "done";
       if (failedUrl) needsAttention.push({ reason: "check_failed", stage: "checks", url: failedUrl });
 
       return {
@@ -169,9 +175,13 @@ export class GitHubClient {
           if (isBot) satellites.push({ id: `air-${prNumber}`, kind: "ai_review", label: "Copilot Review", status: "passed", url: reviewUrl });
         } else if (review.state === "CHANGES_REQUESTED") {
           anyChangesRequested = true;
-          needsAttention.push({ reason: "changes_requested", stage: "review", url: reviewUrl });
           if (isBot) satellites.push({ id: `air-cr-${prNumber}`, kind: "ai_review", label: "Copilot Review", status: "failed", url: reviewUrl });
         }
+      }
+
+      // attention for changes_requested fires only when BOTH: a reviewer requested changes AND auth user is asked to re-review
+      if (anyChangesRequested && iAmRequested) {
+        needsAttention.push({ reason: "changes_requested", stage: "review", url: prUrl });
       }
 
       const copilotPending = requested.some((r) => r.login.toLowerCase().includes("copilot"));
@@ -213,7 +223,6 @@ export class GitHubClient {
           owner, repo, deployment_id: dep.id, per_page: 1,
         });
         const latest = statuses[0];
-        // Use string cast because "waiting" is a valid API state but missing from some Octokit typedefs
         const statusState = (latest?.state as string | undefined) ?? "pending";
         const logUrl = (latest?.log_url as string | undefined) ?? (latest?.target_url as string | undefined) ?? undefined;
 
@@ -229,25 +238,50 @@ export class GitHubClient {
             break;
           case "in_progress": satStatus = "running"; stageState = "active"; summary = "deploying"; break;
           case "waiting":     satStatus = "waiting"; stageState = "active"; summary = "waiting";
-            needsAttention.push({ reason: "deploy_waiting_approval", stage: isProd ? "prod" : "deploy", url: dep.url });
+            needsAttention.push({
+              reason: "deploy_waiting_approval",
+              stage: isProd ? "prod" : "deploy",
+              url: logUrl ?? `https://github.com/${owner}/${repo}/deployments`,
+            });
             break;
           default:            satStatus = "waiting"; stageState = "active"; summary = statusState;
         }
 
-        const sat: Satellite = { id: `env-${env}-${dep.id}`, kind: "environment", label: env, status: satStatus, url: dep.url };
+        const sat: Satellite = { id: `env-${env}-${dep.id}`, kind: "environment", label: env, status: satStatus, url: logUrl ?? dep.url };
 
-        if (isProd) { prodState = stageState; prodSummary = summary; prodLogUrl = logUrl; prodSats.push(sat); }
-        else { deployState = stageState; deploySummary = summary; deployLogUrl = logUrl; nonProdSats.push(sat); }
+        if (isProd) {
+          prodState = mergeDeployState(prodState, stageState);
+          if (stageState === "failed" || !prodLogUrl) prodLogUrl = logUrl;
+          if (stageState === "failed" || !prodSummary) prodSummary = summary;
+          prodSats.push(sat);
+        } else {
+          deployState = mergeDeployState(deployState, stageState);
+          if (stageState === "failed" || !deployLogUrl) deployLogUrl = logUrl;
+          if (stageState === "failed" || !deploySummary) deploySummary = summary;
+          nonProdSats.push(sat);
+        }
       }
 
       return [
-        { id: "deploy", state: deployState, summary: deploySummary, satellites: nonProdSats, logUrl: deployLogUrl },
-        { id: "prod",   state: prodState,   summary: prodSummary,   satellites: prodSats,    logUrl: prodLogUrl },
+        {
+          id: "deploy", state: deployState, summary: deploySummary, satellites: nonProdSats,
+          logUrl: deployLogUrl, url: `https://github.com/${owner}/${repo}/deployments`,
+        },
+        {
+          id: "prod", state: prodState, summary: prodSummary, satellites: prodSats,
+          logUrl: prodLogUrl, url: `https://github.com/${owner}/${repo}/deployments/activity_log?environment=production`,
+        },
       ];
     } catch {
       return [noData("deploy"), noData("prod")];
     }
   }
+}
+
+/** Aggregate deploy stage state by priority: failed > active > done > pending > no_data. */
+function mergeDeployState(current: StageState, next: StageState): StageState {
+  const priority: Record<StageState, number> = { failed: 4, active: 3, done: 2, pending: 1, no_data: 0 };
+  return (priority[next] ?? 0) > (priority[current] ?? 0) ? next : current;
 }
 
 function noData(id: StageId): Stage {
