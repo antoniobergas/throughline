@@ -7,7 +7,7 @@ const ATTENTION_LABELS: Record<string, string> = {
   check_failed: "checks failed",
   review_requested: "review requested",
   changes_requested: "changes requested",
-  deploy_waiting_approval: "deploy approval needed",
+  deploy_waiting_approval: "approval needed",
   deploy_failed: "deploy failed",
   merge_conflict: "merge conflict",
 };
@@ -19,60 +19,81 @@ interface Props {
 
 export default function FlowRow({ flow, calm }: Props) {
   const hasAttention = flow.needsAttention.length > 0;
-
   const stageMap = Object.fromEntries(flow.stages.map((s) => [s.id, s]));
-
   const prUrl = flow.stages.find((s) => s.id === "pr")?.url;
+  const prNumber = prUrl?.match(/\/pull\/(\d+)/)?.[1];
+
+  // Calm rows: no opacity change, just softer border and title color
+  const rowBorderColor = hasAttention ? "rgba(242,97,78,0.3)" : "#1E2D3D";
+  const titleColor = hasAttention ? "#E8EEF2" : calm ? "#8CA8BE" : "#CDD6DF";
 
   return (
     <div
-      className="group flex items-start gap-0 rounded-lg mb-2 relative transition-all"
+      className="flex items-start rounded-lg mb-1.5 relative group transition-colors"
       style={{
-        background: "#16212E",
-        border: hasAttention ? "1px solid rgba(242,97,78,0.3)" : "1px solid #2A3949",
-        opacity: calm && !hasAttention ? 0.8 : 1,
-        minHeight: 72,
+        background: "#0D1825",
+        border: `1px solid ${rowBorderColor}`,
+        minHeight: 68,
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLElement).style.background = "rgba(13,24,37,0.98)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLElement).style.background = "#0D1825";
       }}
     >
-      {/* Attention indicator bar */}
+      {/* Left attention/status bar */}
       <div
         className="self-stretch rounded-l-lg flex-shrink-0"
         style={{
-          width: 4,
-          background: hasAttention ? "#F2614E" : "transparent",
+          width: 3,
+          background: hasAttention ? "#F2614E" : "#1E2D3D",
+          opacity: hasAttention ? 1 : 0.4,
         }}
       />
 
       {/* Row content */}
-      <div className="flex flex-col flex-1 py-2 px-3 min-w-0">
+      <div className="flex flex-col flex-1 py-2 px-3 min-w-0 gap-1.5">
         {/* Title row */}
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 min-w-0">
+          {/* PR number */}
+          {prNumber && (
+            <span
+              className="text-xs font-mono flex-shrink-0 tabular-nums"
+              style={{ color: "#3A5068", letterSpacing: "0.02em" }}
+            >
+              #{prNumber}
+            </span>
+          )}
+
+          {/* Title — clickable */}
           <button
             onClick={() => prUrl && openUrl(prUrl)}
             title={prUrl ? "Open PR on GitHub" : flow.title}
-            className={`text-sm font-medium truncate text-left bg-transparent border-0 p-0 flex items-center gap-1 ${prUrl ? "hover:underline" : ""}`}
+            className={`text-sm font-medium truncate text-left bg-transparent border-0 p-0 min-w-0 ${prUrl ? "hover:underline" : ""}`}
             style={{
-              color: hasAttention ? "#E8EEF2" : "#B0BEC5",
-              maxWidth: 280,
+              color: titleColor,
               cursor: prUrl ? "pointer" : "default",
+              textUnderlineOffset: "2px",
+              flex: "1 1 0",
             }}
           >
-            <span className="truncate">{flow.title}</span>
-            {prUrl && (
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true" style={{ flexShrink: 0, opacity: 0.5 }}>
-                <path d="M1 9L9 1M9 1H4M9 1V6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            )}
+            {flow.title}
           </button>
+
+          {/* Branch badge — always visible but dim on calm */}
           <span
-            className="text-xs px-1.5 py-0.5 rounded font-mono flex-shrink-0 group-hover:opacity-100 transition-opacity"
+            className="text-xs font-mono flex-shrink-0 hidden sm:inline-block"
             style={{
-              background: "#2A3949",
-              color: "#7E93A6",
-              opacity: calm && !hasAttention ? 0.25 : 1,
+              color: "#3A5068",
+              letterSpacing: "0.01em",
+              maxWidth: 160,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
             }}
           >
-            {flow.branch.length > 28 ? flow.branch.slice(0, 28) + "…" : flow.branch}
+            {flow.branch.length > 26 ? flow.branch.slice(0, 26) + "…" : flow.branch}
           </span>
 
           {/* Attention badges */}
@@ -80,20 +101,41 @@ export default function FlowRow({ flow, calm }: Props) {
             flow.needsAttention.map((a, i) => (
               <button
                 key={i}
-                className="text-xs px-2 py-1.5 rounded font-medium flex-shrink-0 hover:brightness-110 transition-all flex items-center gap-1.5 min-h-[36px]"
-                style={{ background: "rgba(242,97,78,0.18)", color: "#F2614E", border: "1px solid rgba(242,97,78,0.4)" }}
+                className="text-xs px-2 py-1 rounded font-medium flex-shrink-0 flex items-center gap-1.5 transition-colors hover:opacity-90"
+                style={{
+                  background: "rgba(242,97,78,0.12)",
+                  color: "#F2614E",
+                  border: "1px solid rgba(242,97,78,0.3)",
+                }}
                 onClick={() => openUrl(a.url)}
               >
-                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
-                  <path d="M5.5 1L10 9.5H1L5.5 1Z" stroke="currentColor" strokeWidth="1.4" fill="none" />
-                  <path d="M5.5 4.5v2M5.5 8h.01" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 10 10"
+                  fill="none"
+                  aria-hidden="true"
+                  style={{ flexShrink: 0 }}
+                >
+                  <path
+                    d="M5 1L9.5 9H0.5L5 1Z"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    fill="none"
+                  />
+                  <path
+                    d="M5 4v1.5M5 7.5h.01"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    strokeLinecap="round"
+                  />
                 </svg>
                 {ATTENTION_LABELS[a.reason] ?? a.reason}
               </button>
             ))}
         </div>
 
-        {/* Stage pipeline — horizontally scrollable on narrow screens */}
+        {/* Stage pipeline */}
         <div className="overflow-x-auto -mx-3 px-3" style={{ WebkitOverflowScrolling: "touch" }}>
           <div className="flex items-start" style={{ minWidth: "max-content" }}>
             {STAGE_ORDER.map((stageId, i) => {
@@ -104,14 +146,23 @@ export default function FlowRow({ flow, calm }: Props) {
               };
               return (
                 <div key={stageId} className="flex items-start">
-                  {/* Merge gate dashed line before MERGE stage */}
                   {stageId === "merge" && (
                     <div
-                      className="self-stretch flex items-center mx-1"
-                      style={{ borderLeft: "2px dashed #3D5266", minHeight: 56 }}
+                      className="flex-shrink-0 mx-1"
+                      style={{
+                        width: 2,
+                        minHeight: 48,
+                        alignSelf: "stretch",
+                        background:
+                          "repeating-linear-gradient(to bottom, #2A3949 0px, #2A3949 4px, transparent 4px, transparent 8px)",
+                      }}
                     />
                   )}
-                  <StageBox stage={stage} isLast={i === STAGE_ORDER.length - 1} calm={calm && !hasAttention} />
+                  <StageBox
+                    stage={stage}
+                    isLast={i === STAGE_ORDER.length - 1}
+                    calm={calm && !hasAttention}
+                  />
                 </div>
               );
             })}

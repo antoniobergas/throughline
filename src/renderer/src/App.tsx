@@ -283,7 +283,7 @@ export default function App() {
     .filter((sat) => sat.kind === "agent" && sat.status === "running").length;
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ background: "#0E1620" }}>
+    <div className="flex flex-col h-screen overflow-hidden" style={{ background: "#080E14" }}>
       <BoardHeader
         needsAttentionCount={needsAttentionCount}
         activeAgentCount={activeAgentCount}
@@ -305,23 +305,31 @@ export default function App() {
         }}
       />
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto relative">
         {/* Empty state — no token */}
         {!useMock && !hasToken && (
-          <div className="flex flex-col items-center justify-center h-full gap-4" style={{ color: "#7E93A6" }}>
-            <div className="text-4xl">⟳</div>
-            <p className="text-base font-medium" style={{ color: "#E8EEF2" }}>
-              Connect to GitHub to get started
-            </p>
-            <p className="text-sm text-center max-w-xs">
-              Add a fine-grained PAT in Settings to see your PRs flow from coding agents to production.
-            </p>
+          <div className="flex flex-col items-center justify-center h-full gap-3" style={{ color: "#5A7389" }}>
+            {/* Icon */}
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center"
+              style={{ background: "rgba(56,225,198,0.06)", border: "1px solid rgba(56,225,198,0.15)" }}>
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" style={{ color: "#38E1C6" }}>
+                <path d="M3 11h18M11 3l8 8-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-semibold mb-1" style={{ color: "#CDD6DF" }}>
+                Connect your GitHub repository
+              </p>
+              <p className="text-xs max-w-xs leading-relaxed" style={{ color: "#5A7389" }}>
+                Add a fine-grained PAT to see your PRs and agents flowing from code to production.
+              </p>
+            </div>
             <button
-              className="px-4 py-2 rounded text-sm font-medium mt-2 hover:brightness-110 transition-all"
-              style={{ background: "#38E1C6", color: "#0E1620" }}
+              className="text-xs px-4 py-2 rounded-lg font-semibold mt-1 transition-opacity hover:opacity-90"
+              style={{ background: "#38E1C6", color: "#080E14" }}
               onClick={() => setShowSettings(true)}
             >
-              Open Settings
+              Add GitHub token
             </button>
           </div>
         )}
@@ -332,23 +340,28 @@ export default function App() {
         {/* Mock mode banner */}
         {useMock && (
           <div
-            className="mx-4 mt-3 px-4 py-2.5 rounded text-xs flex items-center gap-2"
-            style={{ background: "rgba(56,225,198,0.08)", border: "1px solid rgba(56,225,198,0.2)", color: "#38E1C6" }}
+            className="mx-4 mt-3 px-4 py-2.5 rounded-lg text-xs flex items-center gap-3"
+            style={{
+              background: "rgba(56,225,198,0.05)",
+              border: "1px solid rgba(56,225,198,0.15)",
+              color: "#5A7389",
+            }}
           >
-            <span>Demo — PRs flowing from code to production. Red = needs your attention. Connect a GitHub repo to see your real data.</span>
+            <span style={{ color: "#3A5068" }}>●</span>
+            <span>Demo mode — <span style={{ color: "#8CA8BE" }}>PRs flowing from code → production. Red = needs attention.</span></span>
             <button
-              className="px-3 py-1 rounded text-xs font-medium ml-auto flex-shrink-0 hover:brightness-110 transition-all"
-              style={{ background: "#38E1C6", color: "#0E1620" }}
+              className="text-xs font-semibold ml-auto flex-shrink-0 px-3 py-1 rounded-md transition-opacity hover:opacity-90"
+              style={{ background: "#38E1C6", color: "#080E14" }}
               onClick={() => setShowSettings(true)}
             >
-              Add a token →
+              Connect GitHub →
             </button>
           </div>
         )}
 
         {/* Board */}
         {displayed.length > 0 && (
-          <div className="px-4 pt-3 pb-4">
+          <div className="px-4 pt-2 pb-6">
             <StageHeaderRow />
             <div className="mt-2">
               {displayed.map((flow) => (
@@ -360,34 +373,31 @@ export default function App() {
 
         {/* Empty filtered state */}
         {!useMock && hasToken && displayed.length === 0 && !loading && !error && (
-          <div className="flex flex-col items-center justify-center h-64 gap-2" style={{ color: "#7E93A6" }}>
-            <span className="text-2xl">✓</span>
+          <div className="flex flex-col items-center justify-center h-48 gap-2">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ color: "#2E4257" }}>
+              <path d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
             {onlyNeedsAttention ? (
-              <p className="text-sm">Nothing needs your attention.</p>
+              <p className="text-sm" style={{ color: "#5A7389" }}>Nothing needs your attention right now.</p>
             ) : (
-              <>
-                <p className="text-sm">No open PRs.</p>
-                <p className="text-xs text-center max-w-xs mt-1">
-                  Verify your token has the{" "}
-                  <span style={{ color: "#E8EEF2" }}>Pull requests</span> scope.
-                  {repos.length > 1 && " You can also switch to a different repo above."}
-                </p>
-              </>
+              <p className="text-sm" style={{ color: "#5A7389" }}>No open pull requests found.</p>
             )}
           </div>
         )}
 
         {/* Loading */}
         {loading && flows.length === 0 && (
-          <div className="flex items-center justify-center h-32">
-            <span className="text-sm animate-pulse" style={{ color: "#7E93A6" }}>
-              Loading flows…
-            </span>
+          <div className="flex items-center justify-center h-32 gap-2">
+            <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#38E1C6", animationDelay: "0ms" }} />
+            <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#38E1C6", animationDelay: "150ms" }} />
+            <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#38E1C6", animationDelay: "300ms" }} />
           </div>
         )}
+        {/* Legend button — floating bottom-right corner */}
+        <div className="fixed bottom-4 right-4 z-20">
+          <Legend />
+        </div>
       </div>
-
-      <Legend />
 
       {showSettings && (
         <SettingsModal
@@ -453,10 +463,10 @@ function ErrorBanner({ error, onOpenSettings, onRestart }: ErrorBannerProps) {
   return (
     <div
       className="mx-4 mt-3 px-4 py-3 rounded text-sm flex flex-col gap-2"
-      style={{ background: "rgba(242,97,78,0.1)", border: "1px solid rgba(242,97,78,0.3)", color: "#F2614E" }}
+      style={{ background: "rgba(242,97,78,0.08)", border: "1px solid rgba(242,97,78,0.25)", color: "#F2614E" }}
     >
       <span className="font-medium">{heading}</span>
-      {detail && <span className="text-xs" style={{ color: "#7E93A6" }}>{detail}</span>}
+      {detail && <span className="text-xs" style={{ color: "#8CA8BE" }}>{detail}</span>}
       {cta === "settings" && (
         <button className="self-start text-xs underline hover:no-underline" style={{ color: "#F2614E" }} onClick={onOpenSettings}>
           Open Settings →
