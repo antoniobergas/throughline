@@ -1,12 +1,22 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-canvas: #0E1620;
+  --color-panel: #16212E;
+  --color-rail: #2A3949;
+  --color-muted: #7E93A6;
+  --color-teal: #38E1C6;
+  --color-violet: #8B7BF0;
+  --color-green: #6FD08C;
+  --color-amber: #F4A94B;
+  --color-coral: #F2614E;
+}
 
 @layer base {
   body {
     background-color: #0E1620;
     color: #E8EEF2;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", sans-serif;
     -webkit-font-smoothing: antialiased;
   }
   * {
