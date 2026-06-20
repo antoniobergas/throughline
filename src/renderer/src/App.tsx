@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FeatureFlow, WorkflowRun } from "../../shared/types";
 import { MOCK_FLOWS } from "./mockData";
 import { getSettings, clearToken, listRepos, getFeatureFlows, getSelectedRepos, setSelectedRepos, reportAttention, isElectron, getWorkflows, onWorkflowUpdate } from "./electronApi";
@@ -303,6 +303,18 @@ export default function App() {
 
   const needsAttentionCount = (useMock ? MOCK_FLOWS : flows).filter((f) => f.needsAttention.length > 0).length;
 
+  // Group subagents into single rows
+  const workflowGroups = useMemo(() => {
+    const groups = new Map<string, WorkflowRun[]>();
+    for (const run of workflowRuns) {
+      const baseBranch = run.branch.replace(/\/agent-\d+$/, "");
+      const key = `${baseBranch}::${run.description}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(run);
+    }
+    return [...groups.values()];
+  }, [workflowRuns]);
+
   const activeAgentCount = (useMock ? MOCK_FLOWS : flows)
     .flatMap((f) => f.stages)
     .flatMap((s) => s.satellites)
@@ -387,16 +399,16 @@ export default function App() {
         )}
 
         {/* Workflow runs */}
-        {workflowRuns.length > 0 && (
+        {workflowGroups.length > 0 && (
           <div className="px-4 pt-3">
             <p className="text-xs font-semibold mb-2 tracking-widest uppercase" style={{ color: "#3A5068", letterSpacing: "0.1em" }}>
               Workflows
             </p>
-            {workflowRuns.map((run) => (
+            {workflowGroups.map((group) => (
               <WorkflowRunCard
-                key={run.id}
-                run={run}
-                onClick={() => setActiveLogRun(run)}
+                key={group[0].id}
+                runs={group}
+                onClickAgent={setActiveLogRun}
               />
             ))}
           </div>
@@ -457,7 +469,6 @@ export default function App() {
           onCreated={(runs) => {
             setWorkflowRuns((prev) => [...runs, ...prev]);
             setShowNewWorkflow(false);
-            if (runs[0]) setActiveLogRun(runs[0]);
           }}
           onClose={() => setShowNewWorkflow(false)}
         />

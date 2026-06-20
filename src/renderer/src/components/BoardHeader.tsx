@@ -64,13 +64,6 @@ export default function BoardHeader({
     r.toLowerCase().includes(repoSearch.toLowerCase())
   );
 
-  const repoButtonLabel =
-    selectedRepos.length === 0
-      ? "Select repo"
-      : selectedRepos.length === 1
-      ? (selectedRepos[0].split("/")[1] ?? selectedRepos[0])
-      : `${selectedRepos.length} repos`;
-
   const toggleRepo = (r: string) => {
     if (selectedRepos.includes(r)) {
       if (selectedRepos.length > 1) {
@@ -116,209 +109,94 @@ export default function BoardHeader({
       </div>
 
       {/* Separator */}
-      <div
-        className="w-px self-stretch my-2.5 flex-shrink-0"
-        style={{ background: "#1E2D3D" }}
-      />
+      <div className="w-px self-stretch my-2.5 flex-shrink-0" style={{ background: "#1E2D3D" }} />
 
-      {/* Repo selector dropdown */}
-      {hasToken && repos.length > 0 && (
-        <div className="relative flex-shrink-0" ref={repoDropdownRef}>
-          <button
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md font-medium transition-colors hover:bg-white/5"
-            style={{
-              background: "#0D1825",
-              border: "1px solid #1E2D3D",
-              color: "#CDD6DF",
-            }}
-            onClick={() => {
-              setRepoOpen((v) => !v);
-              setRepoSearch("");
-            }}
-          >
-            {/* Repo icon */}
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 13 13"
-              fill="none"
-              aria-hidden="true"
-            >
-              <rect
-                x="1"
-                y="1"
-                width="11"
-                height="11"
-                rx="2"
-                stroke="currentColor"
-                strokeWidth="1.2"
-              />
-              <path
-                d="M4 4h5M4 6.5h3M4 9h4"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                strokeLinecap="round"
-              />
-            </svg>
-            <span className="font-mono" style={{ color: "#38E1C6" }}>
-              {repoButtonLabel}
-            </span>
-            {/* Chevron */}
-            <svg
-              width="10"
-              height="10"
-              viewBox="0 0 10 10"
-              fill="none"
-              aria-hidden="true"
-              style={{ opacity: 0.5 }}
-            >
-              <path
-                d={repoOpen ? "M2 6.5l3-3 3 3" : "M2 3.5l3 3 3-3"}
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
+      {/* Watching label + repo chips */}
+      {hasToken && (
+        <div className="flex items-center gap-1.5 flex-shrink-0 min-w-0">
+          <span className="text-xs flex-shrink-0" style={{ color: "#3A5068" }}>watching</span>
 
-          {repoOpen && (
-            <div
-              className="absolute top-full mt-1 left-0 rounded-lg shadow-2xl z-50 overflow-hidden"
-              style={{
-                background: "#0D1825",
-                border: "1px solid #1E2D3D",
-                minWidth: 240,
-                maxWidth: 320,
-              }}
-            >
-              {/* Search */}
-              <div
-                className="px-2 py-2"
-                style={{ borderBottom: "1px solid #1E2D3D" }}
+          {/* Selected repo chips */}
+          {selectedRepos.map((r) => {
+            const name = r.split("/")[1] ?? r;
+            const canRemove = selectedRepos.length > 1;
+            return (
+              <span
+                key={r}
+                className="flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded-md flex-shrink-0"
+                style={{ background: "rgba(56,225,198,0.08)", border: "1px solid rgba(56,225,198,0.2)", color: "#38E1C6" }}
               >
-                <div
-                  className="flex items-center gap-1.5 px-2 py-1 rounded"
-                  style={{
-                    background: "#080E14",
-                    border: "1px solid #1E2D3D",
-                  }}
-                >
-                  <svg
-                    width="11"
-                    height="11"
-                    viewBox="0 0 11 11"
-                    fill="none"
-                    style={{ color: "#5A7389", flexShrink: 0 }}
+                {name}
+                {canRemove && (
+                  <button
+                    className="transition-colors hover:text-red-400 flex-shrink-0"
+                    style={{ color: "#2E7A6E", lineHeight: 1, fontSize: 13 }}
+                    onClick={() => onSelectRepos(selectedRepos.filter((x) => x !== r))}
+                    title={`Stop watching ${r}`}
                   >
-                    <circle
-                      cx="4.5"
-                      cy="4.5"
-                      r="3"
-                      stroke="currentColor"
-                      strokeWidth="1.3"
-                    />
-                    <path
-                      d="M7 7l2.5 2.5"
-                      stroke="currentColor"
-                      strokeWidth="1.3"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <input
-                    className="flex-1 bg-transparent outline-none text-xs"
-                    style={{ color: "#CDD6DF", caretColor: "#38E1C6" }}
-                    placeholder="Filter repos…"
-                    value={repoSearch}
-                    onChange={(e) => setRepoSearch(e.target.value)}
-                    autoFocus
-                  />
-                </div>
-              </div>
-
-              {/* Repo list */}
-              <div className="py-1 overflow-y-auto" style={{ maxHeight: 240 }}>
-                {filteredRepos.length === 0 && (
-                  <div
-                    className="px-3 py-2 text-xs"
-                    style={{ color: "#5A7389" }}
-                  >
-                    No repos found
-                  </div>
+                    ×
+                  </button>
                 )}
-                {filteredRepos.map((r) => {
-                  const isSelected = selectedRepos.includes(r);
-                  const canAdd = !isSelected && selectedRepos.length < 6;
-                  const canRemove = isSelected && selectedRepos.length > 1;
-                  const disabled = !isSelected && !canAdd;
-                  return (
-                    <button
-                      key={r}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs transition-colors"
-                      style={{
-                        color: isSelected
-                          ? "#CDD6DF"
-                          : disabled
-                          ? "#3A4D61"
-                          : "#8CA8BE",
-                        background: "transparent",
-                        cursor: canAdd || canRemove ? "pointer" : "default",
-                      }}
-                      onClick={() =>
-                        canAdd || canRemove ? toggleRepo(r) : undefined
-                      }
-                      onMouseEnter={(e) => {
-                        if (canAdd || canRemove) {
-                          (e.currentTarget as HTMLElement).style.background =
-                            "rgba(255,255,255,0.04)";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLElement).style.background =
-                          "transparent";
-                      }}
-                    >
-                      {/* Checkmark col */}
-                      <span className="w-3.5 flex-shrink-0 flex items-center justify-center">
-                        {isSelected && (
-                          <svg
-                            width="11"
-                            height="11"
-                            viewBox="0 0 11 11"
-                            fill="none"
-                            style={{ color: "#38E1C6" }}
-                          >
-                            <path
-                              d="M1.5 5.5l3 3L9.5 2"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        )}
-                      </span>
-                      {/* Owner dim, name bright */}
-                      <span className="font-mono truncate">
-                        <span style={{ color: "#3A4D61" }}>
-                          {r.split("/")[0]}/
-                        </span>
-                        <span>{r.split("/")[1]}</span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              </span>
+            );
+          })}
 
-              {selectedRepos.length >= 6 && (
+          {/* Add repo button + dropdown */}
+          {repos.length > selectedRepos.length && selectedRepos.length < 6 && (
+            <div className="relative flex-shrink-0" ref={repoDropdownRef}>
+              <button
+                className="flex items-center justify-center w-5 h-5 rounded transition-colors hover:bg-white/5"
+                style={{ border: "1px solid #1E2D3D", color: "#5A7389" }}
+                onClick={() => { setRepoOpen((v) => !v); setRepoSearch(""); }}
+                title="Watch another repo"
+              >
+                <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+                  <path d="M4.5 1v7M1 4.5h7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                </svg>
+              </button>
+
+              {repoOpen && (
                 <div
-                  className="px-3 py-1.5 text-xs"
-                  style={{
-                    borderTop: "1px solid #1E2D3D",
-                    color: "#5A7389",
-                  }}
+                  className="absolute top-full mt-1 left-0 rounded-lg shadow-2xl z-50 overflow-hidden"
+                  style={{ background: "#0D1825", border: "1px solid #1E2D3D", minWidth: 220, maxWidth: 300 }}
                 >
-                  Max 6 repos selected
+                  <div className="px-2 py-2" style={{ borderBottom: "1px solid #1E2D3D" }}>
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded" style={{ background: "#080E14", border: "1px solid #1E2D3D" }}>
+                      <svg width="11" height="11" viewBox="0 0 11 11" fill="none" style={{ color: "#5A7389", flexShrink: 0 }}>
+                        <circle cx="4.5" cy="4.5" r="3" stroke="currentColor" strokeWidth="1.3"/>
+                        <path d="M7 7l2.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                      </svg>
+                      <input
+                        className="flex-1 bg-transparent outline-none text-xs"
+                        style={{ color: "#CDD6DF", caretColor: "#38E1C6" }}
+                        placeholder="Search repos…"
+                        value={repoSearch}
+                        onChange={(e) => setRepoSearch(e.target.value)}
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                  <div className="py-1 overflow-y-auto" style={{ maxHeight: 220 }}>
+                    {filteredRepos.filter((r) => !selectedRepos.includes(r)).length === 0 ? (
+                      <div className="px-3 py-2 text-xs" style={{ color: "#5A7389" }}>No more repos</div>
+                    ) : (
+                      filteredRepos
+                        .filter((r) => !selectedRepos.includes(r))
+                        .map((r) => (
+                          <button
+                            key={r}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-white/5"
+                            style={{ color: "#8CA8BE" }}
+                            onClick={() => { toggleRepo(r); setRepoOpen(false); }}
+                          >
+                            <span className="font-mono truncate">
+                              <span style={{ color: "#3A4D61" }}>{r.split("/")[0]}/</span>
+                              <span>{r.split("/")[1]}</span>
+                            </span>
+                          </button>
+                        ))
+                    )}
+                  </div>
                 </div>
               )}
             </div>
