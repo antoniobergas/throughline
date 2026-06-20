@@ -4,7 +4,7 @@ import { URL } from "url";
 // Create an OAuth App at https://github.com/settings/applications/new
 // Name: throughline | Homepage: any | Callback URL: any | Enable Device Flow: ✓
 // Paste the Client ID below (it is public — safe to commit).
-export const GITHUB_OAUTH_CLIENT_ID = "";
+export const GITHUB_OAUTH_CLIENT_ID = "Ov23lieVpVe3vqnmEhkh";
 
 const SCOPE = "repo read:user";
 
